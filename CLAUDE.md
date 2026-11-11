@@ -22,9 +22,16 @@ As a result, its initial payload and subsequent client-side loads should remain 
 
 ## Design
 
+#### Summary
+
 The design should be extremely potato-oriented. The initial version of the site should be a single page.
 The center of the page should contain a CSS-based image of a yukon gold potato. The colors of the site should
 be based on the hex values of a yukon gold and russet potato skins.
 
 There can be a single anchor to bounce to a section of th page for:
 - "About" - a small blurb about how a small, family operation runs Bill's Potato Shack and is proud of their quality
+
+#### Styling / Branding
+
+The colors locked in to styles.css are pivotal to the central styling and branding of the site, and should
+be referenced, or updated, whenever possible by any new additions to the site with UI implications.

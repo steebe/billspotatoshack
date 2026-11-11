@@ -9,6 +9,9 @@
   --russet-dark: #5C3A1E;
   /* Potato flesh */
   --cream: #FBF3DC;
+  /* The enemy */
+  --carrot: #ED7D31;
+  --carrot-top: #5B8C2A;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -47,6 +50,7 @@ a:hover, a:focus-visible { color: var(--russet-dark); }
   font-weight: 700;
   letter-spacing: .02em;
 }
+.site-header nav { display: flex; gap: 8px; }
 .site-header nav a {
   font-weight: 600;
   padding: 6px 14px;
@@ -169,6 +173,85 @@ main { flex: 1; }
   color: var(--yukon-light);
 }
 .site-footer p { margin: 0; }
+
+/* Catch game */
+.catch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 16px 40px;
+  text-align: center;
+}
+.catch h1 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2rem, 8vw, 2.75rem);
+  color: var(--russet);
+}
+.catch-intro { margin: 0; font-style: italic; }
+.hud {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  font-size: .9rem;
+}
+.hud span {
+  padding: 4px 12px;
+  background: var(--yukon-light);
+  border: 2px solid var(--russet);
+  border-radius: 999px;
+}
+.stage {
+  position: relative;
+  width: min(100%, 480px);
+  aspect-ratio: 3 / 4;
+  border: 4px solid var(--russet);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 12px 24px -12px rgba(92,58,30,.5);
+}
+.stage canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: none;
+}
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  background: rgba(251,243,220,.88);
+}
+.overlay[hidden] { display: none; }
+.overlay-title {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--russet);
+}
+.overlay-text { margin: 0 0 8px; max-width: 32ch; }
+.overlay button {
+  font: inherit;
+  font-weight: 700;
+  padding: 10px 28px;
+  color: var(--russet-dark);
+  background: var(--yukon);
+  border: 3px solid var(--russet);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.overlay button:hover,
+.overlay button:focus-visible { background: var(--yukon-light); }
+.controls-hint { margin: 0; font-size: .85rem; color: var(--russet); }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
