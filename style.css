@@ -205,19 +205,26 @@ main { flex: 1; }
 }
 .stage {
   position: relative;
-  width: min(100%, 480px);
+  /* Fit the whole 3:4 field (plus the HUD above it) within the screen height. */
+  width: min(100%, 480px, calc((100svh - 72px) * 3 / 4));
   aspect-ratio: 3 / 4;
   border: 4px solid var(--russet);
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 12px 24px -12px rgba(92,58,30,.5);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 .stage canvas {
   display: block;
   width: 100%;
   height: 100%;
   touch-action: none;
-  cursor: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .stage canvas { cursor: none; }
 }
 .overlay {
   position: absolute;
@@ -252,6 +259,11 @@ main { flex: 1; }
 .overlay button:hover,
 .overlay button:focus-visible { background: var(--yukon-light); }
 .controls-hint { margin: 0; font-size: .85rem; color: var(--russet); }
+.hint-touch { display: none; }
+@media (hover: none), (pointer: coarse) {
+  .hint-touch { display: inline; }
+  .hint-desktop { display: none; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }

@@ -7,8 +7,8 @@
   <meta name="description" content="Catch potatoes. Avoid carrots. A Bill's Potato Shack game.">
   <meta name="theme-color" content="#E3C16F">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥔</text></svg>">
-  <link rel="stylesheet" href="../style.css">
-  <script src="game.js" defer></script>
+  <link rel="stylesheet" href="../style.css?v=2">
+  <script src="game.js?v=2" defer></script>
 </head>
 <body>
   <header class="site-header">
@@ -35,7 +35,10 @@
       </div>
     </div>
 
-    <p class="controls-hint">Move with the mouse, A / D, or &larr; / &rarr;. Space or Enter to start.</p>
+    <p class="controls-hint">
+      <span class="hint-desktop">Move with the mouse, A / D, or &larr; / &rarr;. Space or Enter to start.</span>
+      <span class="hint-touch">Drag anywhere on the field to move the basket.</span>
+    </p>
   </main>
 
   <footer class="site-footer">

@@ -10,6 +10,7 @@
   const $ = (id) => document.getElementById(id);
   const overlay = $('overlay'), overlayTitle = $('overlay-title'), overlayText = $('overlay-text'), startBtn = $('start');
   const scoreEl = $('score'), missesEl = $('misses'), carrotsEl = $('carrots');
+  const hud = document.querySelector('.hud');
 
   // Brand colors come from style.css so the palette has one source of truth.
   const css = getComputedStyle(document.documentElement);
@@ -244,6 +245,8 @@
   function start() {
     reset();
     overlay.hidden = true;
+    // Bring the HUD + full play field on screen (matters on phones).
+    hud.scrollIntoView({ block: 'start' });
     running = true;
     last = performance.now();
     requestAnimationFrame(frame);
@@ -259,14 +262,50 @@
   }
 
   // ---- Input ----
-  canvas.addEventListener('pointermove', (e) => {
-    if (!running) return;
+  function toCanvasX(clientX) {
     const rect = canvas.getBoundingClientRect();
-    state.basketX = ((e.clientX - rect.left) / rect.width) * W;
-  });
-  canvas.addEventListener('pointerdown', (e) => {
-    if (running) canvas.setPointerCapture(e.pointerId);
-  });
+    return ((clientX - rect.left) / rect.width) * W;
+  }
+
+  // Touch: relative drag, so a finger anywhere on the field steers the
+  // basket without covering it. Mouse: basket follows the cursor.
+  let drag = null;
+  function dragStart(clientX) {
+    drag = { startX: toCanvasX(clientX), basketX: state.basketX };
+  }
+  function dragMove(clientX) {
+    if (drag) state.basketX = drag.basketX + (toCanvasX(clientX) - drag.startX);
+  }
+  function dragEnd() { drag = null; }
+
+  if (window.PointerEvent) {
+    canvas.addEventListener('pointerdown', (e) => {
+      if (!running || e.pointerType === 'mouse') return;
+      canvas.setPointerCapture(e.pointerId);
+      dragStart(e.clientX);
+    });
+    canvas.addEventListener('pointermove', (e) => {
+      if (!running) return;
+      if (e.pointerType === 'mouse') state.basketX = toCanvasX(e.clientX);
+      else dragMove(e.clientX);
+    });
+    canvas.addEventListener('pointerup', dragEnd);
+    canvas.addEventListener('pointercancel', dragEnd);
+  } else {
+    // Fallback for browsers without Pointer Events (older iOS Safari).
+    canvas.addEventListener('touchstart', (e) => {
+      if (!running) return;
+      e.preventDefault();
+      dragStart(e.touches[0].clientX);
+    }, { passive: false });
+    canvas.addEventListener('touchmove', (e) => {
+      if (!running) return;
+      e.preventDefault();
+      dragMove(e.touches[0].clientX);
+    }, { passive: false });
+    canvas.addEventListener('touchend', dragEnd);
+    canvas.addEventListener('touchcancel', dragEnd);
+  }
 
   const KEYMAP = { ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right' };
   window.addEventListener('keydown', (e) => {
