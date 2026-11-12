@@ -38,7 +38,7 @@
     return TYPES[0];
   }
 
-  let state, running = false, last = 0;
+  let state, running = false, last = 0, dpr = 1;
   const keys = { left: false, right: false };
 
   function reset() {
@@ -124,9 +124,17 @@
     ctx.fillStyle = g;
     ctx.strokeStyle = edge;
     ctx.lineWidth = 1.5;
+    if (kind === 'golden') {
+      // Glow = zero-offset shadow. shadowBlur ignores the canvas transform,
+      // so scale by dpr. it.x offsets the phase so goldens don't pulse in unison.
+      const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 200 + it.x);
+      ctx.shadowColor = C.yukonDark;
+      ctx.shadowBlur = (8 + 8 * pulse) * dpr;
+    }
     ctx.beginPath();
     ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
     ctx.fill();
+    ctx.shadowBlur = 0; // glow off: outline, eyes and sparkle stay crisp
     ctx.stroke();
 
     ctx.fillStyle = edge;
@@ -254,7 +262,7 @@
 
   // ---- Canvas sizing ----
   function setupCanvas() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    dpr = Math.min(window.devicePixelRatio || 1, 3);
     canvas.width = W * dpr;
     canvas.height = H * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
