@@ -18,7 +18,7 @@
   canvas.height = H;
   const $ = (id) => document.getElementById(id);
   const overlay = $('overlay'), overlayTitle = $('overlay-title'), overlayText = $('overlay-text'), startBtn = $('start');
-  const scoreEl = $('score'), hiEl = $('hi'), pauseBtn = $('pause');
+  const scoreEl = $('score'), hiEl = $('hi'), pauseBtn = $('pause'), jumpBtn = $('jump');
   const stage = document.querySelector('.stage');
 
   // Brand colors come from style.css so the palette has one source of truth.
@@ -437,8 +437,17 @@
 
   const isFair = (extra) => canSurvive(state.obs.concat(extra));
 
+  // Jump button copy tracks the run: Start (no run yet, or after a crash),
+  // Jump (mid-run), Resume (paused).
+  function syncJumpBtn() {
+    const label = !running ? 'Start' : paused ? 'Resume' : 'Jump';
+    jumpBtn.textContent = label;
+    jumpBtn.setAttribute('aria-label', label);
+  }
+
   function die(cause) {
     running = false;
+    syncJumpBtn();
     state.dead = true;
     deadAt = performance.now();
     pauseBtn.hidden = true;
@@ -635,8 +644,11 @@
     pauseBtn.hidden = false;
     startBtn.blur();
     stage.scrollIntoView({ block: 'nearest' });
+    // On touch screens, keep the Jump button below the field in view too.
+    if (jumpBtn.offsetParent) jumpBtn.scrollIntoView({ block: 'nearest' });
     running = true;
     paused = false;
+    syncJumpBtn();
     last = performance.now();
     acc = 0;
     requestAnimationFrame(frame);
@@ -645,6 +657,7 @@
   function pause() {
     if (!running || paused) return;
     paused = true;
+    syncJumpBtn();
     release();
     pauseBtn.hidden = true;
     overlayTitle.textContent = 'Paused';
@@ -657,6 +670,7 @@
   function resume() {
     if (!running || !paused) return;
     paused = false;
+    syncJumpBtn();
     overlay.hidden = true;
     pauseBtn.hidden = false;
     startBtn.blur();
@@ -716,6 +730,31 @@
     canvas.addEventListener('touchend', release);
     canvas.addEventListener('touchcancel', release);
   }
+
+  // Jump button (touch devices only): sits below the field so a thumb
+  // doesn't cover Pete. Like Space, it also starts or resumes a run.
+  function jumpDown() {
+    if (!running) start();
+    else if (paused) resume();
+    else press();
+  }
+  if (window.PointerEvent) {
+    jumpBtn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      jumpBtn.setPointerCapture(e.pointerId);
+      jumpDown();
+    });
+    jumpBtn.addEventListener('pointerup', release);
+    jumpBtn.addEventListener('pointercancel', release);
+  } else {
+    jumpBtn.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      jumpDown();
+    }, { passive: false });
+    jumpBtn.addEventListener('touchend', release);
+    jumpBtn.addEventListener('touchcancel', release);
+  }
+  jumpBtn.addEventListener('contextmenu', (e) => e.preventDefault());
 
   // Tap anywhere on the overlay (or its button) to start or resume.
   overlay.addEventListener('click', () => { if (paused) resume(); else start(); });
