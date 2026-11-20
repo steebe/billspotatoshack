@@ -12,6 +12,15 @@
   /* The enemy */
   --carrot: #ED7D31;
   --carrot-top: #5B8C2A;
+  /* Farmland (Pete) */
+  --leaf: #6BA34A;
+  --leaf-light: #9CC46A;
+  --leaf-dark: #3F6E2A;
+  --sky-day: #D9EEF2;
+  --sky-night: #46507A;
+  --arid: #D9B97A;
+  --arid-dark: #A07C45;
+  --poison: #B23A3A;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -174,8 +183,8 @@ main { flex: 1; }
 }
 .site-footer p { margin: 0; }
 
-/* Catch game */
-.catch {
+/* Games (Catch, Pete) */
+.catch, .game-page {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -183,13 +192,13 @@ main { flex: 1; }
   padding: 24px 16px 40px;
   text-align: center;
 }
-.catch h1 {
+.catch h1, .game-page h1 {
   margin: 0;
   font-family: Georgia, "Times New Roman", serif;
   font-size: clamp(2rem, 8vw, 2.75rem);
   color: var(--russet);
 }
-.catch-intro { margin: 0; font-style: italic; }
+.catch-intro, .game-intro { margin: 0; font-style: italic; }
 .hud {
   display: flex;
   flex-wrap: wrap;
@@ -258,6 +267,53 @@ main { flex: 1; }
 }
 .overlay button:hover,
 .overlay button:focus-visible { background: var(--yukon-light); }
+/* Pete: wide, pixelated stage */
+.stage.pete-stage {
+  width: min(100%, 900px);
+  aspect-ratio: 5 / 2;
+}
+.stage.pete-stage canvas {
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+  cursor: pointer;
+}
+.pete-stage .overlay {
+  gap: 4px;
+  padding: 8px;
+  line-height: 1.3;
+  background: rgba(251,243,220,.78);
+}
+.pete-stage .overlay-title { font-size: clamp(1.2rem, 5vw, 2rem); }
+.pete-stage .overlay-text { margin: 0 0 4px; max-width: 48ch; font-size: clamp(.8rem, 2.5vw, 1rem); }
+.pete-stage .overlay button { padding: 6px 22px; }
+/* Pause button: touch devices only (desktop uses Esc). Sits above Pete. */
+.pause-btn {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 32px;
+  height: 32px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0;
+  background: rgba(251,243,220,.85);
+  border: 2px solid var(--russet);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.pause-btn::before,
+.pause-btn::after {
+  content: "";
+  width: 5px;
+  height: 14px;
+  background: var(--russet-dark);
+}
+@media (hover: none), (pointer: coarse) {
+  .pause-btn:not([hidden]) { display: flex; }
+}
 .controls-hint { margin: 0; font-size: .85rem; color: var(--russet); }
 .hint-touch { display: none; }
 @media (hover: none), (pointer: coarse) {

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pete | Bill's Potato Shack</title>
+  <meta name="description" content="Potato Pete is making a run for it. A Bill's Potato Shack game.">
+  <meta name="theme-color" content="#E3C16F">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥔</text></svg>">
+  <link rel="stylesheet" href="../style.css?v=4">
+  <script src="game.js?v=5" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="wordmark" href="../index.html">Bill's Potato Shack</a>
+    <nav><a href="../#about">About</a><a href="../catch/index.html">Catch!</a></nav>
+  </header>
+
+  <main class="game-page">
+    <h1>Pete!</h1>
+    <p class="game-intro">Potato Pete is making a run for it. Help him clear the farm.</p>
+
+    <div class="hud" aria-live="off">
+      <span>Score <b id="score">00000</b></span>
+      <span>HI <b id="hi">00000</b></span>
+    </div>
+
+    <div class="stage pete-stage">
+      <canvas id="game" aria-label="Pete game: jump Potato Pete over weeds, herbicide cans, beetles and low-flying birds"></canvas>
+      <button type="button" class="pause-btn" id="pause" aria-label="Pause" hidden></button>
+      <div class="overlay" id="overlay">
+        <p class="overlay-title" id="overlay-title">Ready?</p>
+        <p class="overlay-text" id="overlay-text">Jump the weeds, cans, beetles &amp; low birds.</p>
+        <button type="button" id="start">Start</button>
+      </div>
+    </div>
+
+    <p class="controls-hint">
+      <span class="hint-desktop">Space, W, or &uarr; to jump. Hold it to jump higher. Esc to pause.</span>
+      <span class="hint-touch">Tap the field to jump. Hold to jump higher. Tap &#10074;&#10074; to pause.</span>
+    </p>
+  </main>
+
+  <footer class="site-footer">
+    <p>&copy; Bill's Potato Shack. No refunds on potatoes that are potatoes.</p>
+  </footer>
+</body>
+</html>

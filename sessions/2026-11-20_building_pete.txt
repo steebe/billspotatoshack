@@ -1,0 +1,1563 @@
+ ▐▛███▛█   Claude Code v2.1.329
+▝▜██████▀  Opus 5.5 · Claude Pro
+ ▝▝   ▝▝   ~/Documents/Development/Repositories/steebe/billspotatoshack
+
+
+❯ Hi buddy. I'm back for more fun in this little repo. Let's add a new feature: 
+  A new game called "Pete" that is a clone of the Google Chrome Steve Dino      
+  game. See specs in prompts/PETE.md                                            
+
+  Read 1 file, listed 2 directories · 1 failed (ctrl+o to expand)
+
+● Updated plan
+  ⎿  /plan to preview
+
+● The plan for Pete is written and ready for your review.
+
+● Approved Claude's plan
+  ⎿  Plan saved to: ~/.claude/plans/hi-buddy-i-m-back-polished-walrus.md · /plan
+     to edit
+     Pete — endless-runner game for Bill's Potato Shack
+
+     Context
+
+     prompts/PETE.md asks for a second mini-game, "Pete": a side-scrolling
+     endless runner where Potato Pete is pinned on the left and jumps over farm
+     hazards while the world scrolls and speeds up. Day/night cycles with
+     distance, and the farmland turns arid past a score threshold. It follows
+     the same pattern as the existing catch/ game: plain HTML + one JS file +
+     shared style.css, no dependencies, and well under the 512kb budget (target
+     ~15–20 KB total).
+
+     The mechanics follow the Dino Game genre (jump-only runner, speed ramp,
+     day/night). All art is original pixel art, potato/farm themed and in the
+     brand palette. No T-rex, cactus, pterodactyl or Chrome assets.
+
+     Files
+
+     - New pete/index.html: copy of catch/index.html structure (header/nav,
+       <main class="pete">, HUD, .stage with canvas + .overlay, controls hint,
+       footer). Links ../style.css?v=3 and game.js?v=1.
+     - New pete/game.js: an IIFE in the style of catch/game.js.
+     - Edit style.css: add a .pete section. Reuse .hud, .overlay, .overlay 
+       button, .controls-hint, .hint-touch/.hint-desktop as-is. Add .pete-stage
+       (wide aspect, e.g. 3:1 at desktop, width: min(100%, 800px),
+       image-rendering: pixelated on the canvas). Add new color tokens to :root
+       so the game palette has one source of truth: --leaf, --leaf-dark,
+       --sky-day, --sky-night, --arid, --arid-dark, --poison.
+     - Edit index.html and catch/index.html: add a Pete! nav link next to
+       Catch!. Bump the style.css?v= cache-buster to 3 on all pages.
+
+     game.js design
+
+     Reuse from catch/game.js: the CSS-var color loader (getComputedStyle → C),
+     the rand helper, the frame() loop with clamped dt, setupCanvas() DPR
+     scaling, overlay end()/start(), and HUD caching.
+
+     Pixel look: logical resolution is small (e.g. W=320, H=110) and scaled up
+     with imageSmoothingEnabled=false and CSS image-rendering: pixelated.
+     Sprites are tiny string-grid bitmaps ('..##..' rows plus a per-sprite
+     palette map) drawn with fillRect per pixel and pre-rendered once to
+     offscreen canvases per palette (day / night / arid) so each frame is cheap.
+
+     Sprites (frames):
+     - Pete: idle/run (1–2 frames of a slight bob) + jump frame (eyes wide,
+       little arms up), in yukon colors.
+     - Weed small, weed large (taller/wider): static.
+     - Herbicide can with a skull/X-bones "poison" icon: static.
+     - Beetle: 2 leg frames.
+     - Bird: 2 wing frames (up/down).
+
+     World/physics:
+     - speed starts ~120 px/s and ramps with score (speed = min(MAX, BASE + 
+       score * k)). score = distance / some factor, shown as a 5-digit
+       zero-padded counter plus HI.
+     - Static obstacles move at speed. Beetles and birds move at speed * 
+       1.15–1.3.
+     - Spawning: gap is randomized but scaled by speed so a jump is always
+       possible. Birds only unlock after score ~300, and low/high birds are
+       picked at random. High birds clear Pete's standing head (no action
+       needed); low birds sit at jump height so the player must jump over them.
+     - Variable jump: on press, vy = -JUMP_V. While the input is held and
+       holdTime < MAX_HOLD (~0.18s), apply reduced gravity so a long press
+       floats slightly longer at the apex. Releasing early cuts vy (vy = max(vy,
+       -CUT_V)) for a short hop. Pete can't jump again until he's grounded.
+     - Collision: AABB with per-sprite inset hitboxes (forgiving by a few px).
+
+     Layers / parallax (move separately):
+     - Sky (fills, day/night color lerp), sun/moon + stars at night (static or
+       very slow).
+     - Far hills/crop rows at 0.2×speed, clouds at 0.1×speed.
+     - Foreground ground strip + tiled dirt/grass texture at 1×speed. Obstacles
+       at 1× or more.
+
+     Day/night: every NIGHT_EVERY = 700 points, toggle the night flag. A nightT
+     0→1 tween over ~1s blends the palettes (sky color lerp; sprites swap to a
+     pre-rendered night palette once nightT > 0.5).
+
+     Arid farmland: once score >= ARID_AT = 1500, the aridT tween turns
+     grass/hill colors toward --arid tones, crops into dry stubble, and adds an
+     occasional tumbleweed-ish dust puff in the background (decorative only).
+
+     Game states: ready (overlay "Help Pete run!" + Start), running, over
+     (overlay "Pete got squashed" / "Pete got weeded", etc., with score + "Play
+     again"). High score is saved in localStorage (wrapped in try/catch).
+
+     Input: Space / ArrowUp / W to jump (hold for higher). Pointer/touch down on
+     the stage jumps, and pointer up ends the hold (with a touch fallback like
+     Catch). Space/Enter starts from the overlay. Clear the held state on blur.
+     Respect prefers-reduced-motion by skipping the screen-shake/flash on
+     game-over.
+
+     Verification
+
+     1. python3 -m http.server in the repo root, then open /pete/.
+     2. Check: Pete jumps; a tap gives a short hop and a hold gives a higher,
+        longer jump; collisions end the run; score climbs and speed visibly
+        ramps; beetles/birds close in faster than weeds/cans; high birds pass
+        overhead while standing still; low birds need a jump; day→night at 700
+        and back at 1400; arid look at 1500; HI score persists across reloads.
+     3. Mobile: Chrome devtools device mode, tap to jump, layout fits with no
+        horizontal scroll.
+     4. Size: wc -c pete/* style.css index.html stays well under 512 KB (expect
+        <25 KB).
+     5. Nav links work from home, Catch, and Pete.
+
+● Writing the game now: the new pete/ page and script, then the CSS tokens and
+  nav links.
+
+● Write(pete/index.html)
+  ⎿  Wrote 47 lines to pete/index.html
+       1 <!doctype html>
+       2 <html lang="en">
+       3 <head>
+       4   <meta charset="utf-8">
+       5   <meta name="viewport" content="width=device-width, initial-sca
+         le=1">
+       6   <title>Pete | Bill's Potato Shack</title>
+       7   <meta name="description" content="Potato Pete is making a run 
+         for it. A Bill's Potato Shack game.">
+       8   <meta name="theme-color" content="#E3C16F">
+     … +39 lines (ctrl+o to expand)
+
+● Write(pete/game.js)
+  ⎿  Wrote 541 lines to pete/game.js
+      1 (() => {
+      2   'use strict';
+      3 
+      4   // Logical pixel-art resolution. CSS scales the canvas up with 
+        crisp pixels.
+      5   const W = 300, H = 120, GROUND = 104, PX = 24, CROPS = 88;
+      6   // Jump physics (px, seconds). Holding the jump lowers gravity 
+        on the way up.
+      7   const G = 1600, JUMP_V = 260, HOLD_F = 0.4, MAX_HOLD = 0.22, MI
+        N_HOLD = 0.06, CUT_V = 120, BUFFER = 0.1;
+     … +534 lines (ctrl+o to expand)
+
+● Now the CSS tokens and the shared game-page styles.
+
+● Bash(python3 - <<'EOF'
+      p='style.css'; s=open(p).read()…)
+  ⎿  catch/index.html:10:  <link rel="stylesheet" href="../style.css?v=3">
+     catch/index.html:16:    <nav><a href="../#about">About</a><a href="../
+     pete/index.html">Pete!</a></nav>
+     … +19 lines (ctrl+o to expand)
+  ⎿  Updated catch/index.html +2 -2
+       7    <meta name="description" content="Catch potatoes. Avoid carro
+          ts. A Bill's Potato Shack game.">
+       8    <meta name="theme-color" content="#E3C16F">
+       9    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://
+          www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-
+          size='90'>🥔</text></svg>">
+      10 -  <link rel="stylesheet" href="../style.css?v=2">              
+      10 +  <link rel="stylesheet" href="../style.css?v=3">              
+      11    <script src="game.js?v=2" defer></script>
+      12  </head>
+      13  <body>
+      14    <header class="site-header">
+      15      <a class="wordmark" href="../index.html">Bill's Potato Shac
+          k</a>
+      16 -    <nav><a href="../#about">About</a></nav>                   
+      16 +    <nav><a href="../#about">About</a><a href="../pete/index.ht
+         +ml">Pete!</a></nav>                                            
+      17    </header>
+      18 
+      19    <main class="catch">
+  ⎿  Updated index.html +2 -2
+       7    <meta name="description" content="Bill's Potato Shack. We sel
+          l potatoes. Only potatoes. Proudly family-run.">
+       8    <meta name="theme-color" content="#E3C16F">
+       9    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://
+          www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-
+          size='90'>🥔</text></svg>">
+      10 -  <link rel="stylesheet" href="style.css?v=2">                 
+      10 +  <link rel="stylesheet" href="style.css?v=3">                 
+      11  </head>
+      12  <body>
+      13    <header class="site-header">
+      14      <a class="wordmark" href="#top">Bill's Potato Shack</a>
+      15 -    <nav><a href="#about">About</a><a href="catch/index.html">C
+         -atch!</a></nav>                                                
+      15 +    <nav><a href="#about">About</a><a href="catch/index.html">C
+         +atch!</a><a href="pete/index.html">Pete!</a></nav>             
+      16    </header>
+      17 
+      18    <main id="top">
+  ⎿  Updated style.css +33 -4
+      12    /* The enemy */
+      13    --carrot: #ED7D31;
+      14    --carrot-top: #5B8C2A;
+      15 +  /* Farmland (Pete) */                                        
+      16 +  --leaf: #6BA34A;                                             
+      17 +  --leaf-light: #9CC46A;                                       
+      18 +  --leaf-dark: #3F6E2A;                                        
+      19 +  --sky-day: #D9EEF2;                                          
+      20 +  --sky-night: #46507A;                                        
+      21 +  --arid: #D9B97A;                                             
+      22 +  --arid-dark: #A07C45;                                        
+      23 +  --poison: #B23A3A;                                           
+      24  }
+      25 
+      26  *, *::before, *::after { box-sizing: border-box; }
+     ...
+      183  }
+      184  .site-footer p { margin: 0; }
+      185 
+      177 -/* Catch game */                                              
+      178 -.catch {                                                      
+      186 +/* Games (Catch, Pete) */                                     
+      187 +.catch, .game-page {                                          
+      188    display: flex;
+      189    flex-direction: column;
+      190    align-items: center;
+     ...
+      192    padding: 24px 16px 40px;
+      193    text-align: center;
+      194  }
+      186 -.catch h1 {                                                   
+      195 +.catch h1, .game-page h1 {                                    
+      196    margin: 0;
+      197    font-family: Georgia, "Times New Roman", serif;
+      198    font-size: clamp(2rem, 8vw, 2.75rem);
+      199    color: var(--russet);
+      200  }
+      192 -.catch-intro { margin: 0; font-style: italic; }               
+      201 +.catch-intro, .game-intro { margin: 0; font-style: italic; }  
+      202  .hud {
+      203    display: flex;
+      204    flex-wrap: wrap;
+     … +26 lines (ctrl+o to expand)
+
+● Every sprite grid is consistent and the whole thing is about 29 KB. Next I'll
+  check for a headless browser so I can actually look at it.
+
+● Bash(which chromium chromium-browser google-chrome firefox 2>/dev/null;
+      python3 -c "import playwright; print('pw ok')" 2>&1 | tail -1; ls
+      ~/.cache/ms-playwright 2>/d…)
+  ⎿  Error: Exit code 2
+     chromium not found
+     chromium-browser not found
+     /usr/bin/google-chrome
+     /usr/bin/firefox
+     ModuleNotFoundError: No module named 'playwright'
+
+● Chrome is available. I'll render screenshots from a scratch copy, with a small
+  debug hook that puts the game into specific states (day, night, arid, with
+  every hazard on screen).
+
+● Bash(S=/tmp/claude-1000/-home-steebe-Documents-Development-Repositories-steebe
+      -billspotatoshack/868192f4-ad09-441b-a8d8-d38195a92f2e/scratchpad/site
+      R=/home/steebe/D…)
+  ⎿  -rw-rw-r-- 1 steebe steebe 35272 Nov 20 14:16 /tmp/claude-1000/-home-s
+     teebe-Documents-Development-Repositories-steebe-billspotatoshack/86819
+     2f4-ad09-441b-a8d8-d38195a92f2e/scratchpad/site/aridnight.png
+     … +14 lines (ctrl+o to expand)
+  ⎿  Shell cwd was reset to /home/steebe/Documents/Development/Repositories
+     /steebe/billspotatoshack
+
+  Read 4 files (ctrl+o to expand)
+
+● Everything renders as expected: day, night, arid, all the hazards, and Pete's
+  jump face. To finish, a quick numeric check of the variable jump against the
+  hazard heights:
+
+● Bash(node -e '
+      const G=1600,JUMP_V=260,HOLD_F=0.4,MAX_HOLD=0.22,MIN_HOLD=0.06,CUT_V=120,d
+      t=1/60;…)
+  ⎿  hold 16ms -> apex 13.9px, airtime 0.25s
+     hold 50ms -> apex 15.2px, airtime 0.27s
+     hold 80ms -> apex 19.1px, airtime 0.30s
+     … +4 lines (ctrl+o to expand)
+
+● The fastest taps only just clear the small hazards, so I'll raise the minimum
+  hop a little to be fair to touch taps:
+
+● Bash(sed -i 's/MIN_HOLD = 0.06/MIN_HOLD = 0.08/' pete/game.js && grep -n
+      'MIN_HOLD =' pete/game.js && node --check pete/game.js && git status
+      --short)
+  ⎿  7:  const G = 1600, JUMP_V = 260, HOLD_F = 0.4, MAX_HOLD = 0.22, MIN_H
+     OLD = 0.08, CUT_V = 120, BUFFER = 0.1;
+      M catch/index.html
+     … +4 lines (ctrl+o to expand)
+  ⎿  Updated pete/game.js +1 -1
+       4    // Logical pixel-art resolution. CSS scales the canvas up wit
+          h crisp pixels.
+       5    const W = 300, H = 120, GROUND = 104, PX = 24, CROPS = 88;
+       6    // Jump physics (px, seconds). Holding the jump lowers gravit
+          y on the way up.
+       7 -  const G = 1600, JUMP_V = 260, HOLD_F = 0.4, MAX_HOLD = 0.22, 
+         -MIN_HOLD = 0.06, CUT_V = 120, BUFFER = 0.1;                    
+       7 +  const G = 1600, JUMP_V = 260, HOLD_F = 0.4, MAX_HOLD = 0.22, 
+         +MIN_HOLD = 0.08, CUT_V = 120, BUFFER = 0.1;                    
+       8    const BASE_SPEED = 160, MAX_SPEED = 400, RAMP = 0.12, SCORE_P
+          ER_PX = 0.1;
+       9    const NIGHT_EVERY = 700, ARID_AT = 1500, HI_KEY = 'pete-hi';
+      10 
+
+● Pete is built and playable at /pete/. Run python3 -m http.server in the repo
+  and open localhost:8000/pete/.
+
+  I checked it with headless Chrome screenshots of the day, night, arid,
+  arid-at-night and mid-jump scenes, plus a phone-width view. I also simulated
+  the jump physics. I haven't played a full run with real input, so the
+  difficulty tuning is the thing to check by hand.
+
+  What's in it
+  - Pete is a pixel potato pinned on the left. He has a running pose and a jump
+    pose with wide eyes, an "O" mouth and arms up. He also wears the jump face
+    when he gets mashed.
+  - Ground hazards that move with the ground: small weeds (sometimes in pairs),
+    large weeds, and red herbicide cans with a skull-and-crossbones label.
+  - Hazards that close in faster: potato beetles (orange with black stripes)
+    with moving legs at 1.2× speed, and crows with flapping wings at 1.25×. High
+    crows pass over Pete if he stays on the ground, but jumping into them kills
+    him. Low crows have to be jumped.
+  - Variable jump: a quick tap gives a hop of about 19px, and holding gives
+    about 44px with a slower float at the top. The large weed is the obstacle
+    that needs a held jump. A press just before landing still counts.
+  - Difficulty: speed starts at 160 px/s and climbs with score up to 400. Large
+    weeds start appearing at 150 points, beetles at 250 and crows at 450.
+  - Scenery: three layers scroll at different speeds (clouds, hazy hills, crop
+    rows), separate from the ground. Night falls every 700 points and day
+    returns at the next 700, with stars and a moon. At 1500 points the farm
+    dries out for the rest of the run: tan stubble, a dusty sky and tumbleweeds.
+  - Pixel look: the game draws at 300×120 and the browser scales it up with
+    crisp pixels.
+  - Score: the HUD shows the score and the high score (HI), which is saved in
+    localStorage. Game-over messages depend on what hit Pete, e.g. "Mashed! Pete
+    got sprayed."
+
+  Files
+  - New: pete/index.html and pete/game.js (17 KB).
+  - style.css: new farmland color tokens (--leaf*, --sky-*, --arid*, --poison).
+    The Catch page styles are now shared by both game pages (.catch, 
+    .game-page), plus styles for Pete's wide stage.
+  - index.html and catch/index.html: added a "Pete!" nav link and bumped the
+    stylesheet cache-buster to v=3.
+
+  The whole site is about 29 KB, far under the 512 KB budget.
+
+  Changes from the plan
+  - I darken the scenery at night with a semi-transparent layer instead of
+    keeping separate night versions of each sprite. Pete and the hazards are
+    drawn on top of it, so they stay bright and easy to see in the dark.
+  - I left out the game-over screen flash.
+  - The mechanics follow the Dino Game, but all the art is original and
+    potato-themed. Nothing is copied from Chrome.
+
+  Worth a look
+  - On a phone the play area is only about 140px tall, so Pete is small. That's
+    similar to the original game, but the field could be made taller on narrow
+    screens.
+  - prompts/PETE.md is still untracked, and nothing is committed yet.
+
+✻ Sautéed for 7m 45s · done 2:16 PM
+
+※ recap: Pete, the potato endless-runner game, is built in a new pete/ folder, with nav links and shared styles added, and nothing is committed yet. Next, play a few runs at localhost:8000/pete/ to check the difficulty, then tell me whether to commit. (turn off recaps in /config)
+
+❯ Wow! Amazing first pass! It's looking great. A couple of notes: (1) There are 
+  no birds spawning in, at least from what I can tell, on desktop. (2) I        
+  forgot to include in my requirements some ability to pause. IMO we should     
+  allow the Esc key on desktop to pause, and in mobile, add a small icon in the 
+  top left (above Pete) to indicate a pause button to do the same.              
+
+● Two fixes:
+
+  1. Birds: they don't appear until 450 points, which is about 28 seconds in,
+     and even then they're only about 1 in 5 spawns. You probably weren't
+     surviving long enough to see them. I'll bring all the unlocks earlier.
+  2. Pause: Esc toggles pause on desktop, and a pause button shows on touch
+     devices. I'll also pause automatically when the tab or window loses focus.
+
+● Update(pete/game.js)
+  ⎿  Added 4 lines, removed 4 lines
+      237    const SPAWNS = [
+      238      { k: 'weedS', w: 30, at: 0 },
+      239      { k: 'can', w: 20, at: 0 },
+      240 -    { k: 'weedL', w: 20, at: 150 },                           
+      241 -    { k: 'beetle', w: 18, at: 250 },                          
+      242 -    { k: 'birdLow', w: 12, at: 450 },                         
+      243 -    { k: 'birdHigh', w: 10, at: 450 },                        
+      240 +    { k: 'weedL', w: 20, at: 80 },                            
+      241 +    { k: 'beetle', w: 18, at: 120 },                          
+      242 +    { k: 'birdLow', w: 16, at: 180 },                         
+      243 +    { k: 'birdHigh', w: 14, at: 180 },                        
+      244    ];
+      245 
+      246    function pickKind(score) {
+
+● Update(pete/game.js)  ⎿  Added 1 line, removed 1 line
+      14    canvas.height = H;
+      15    const $ = (id) => document.getElementById(id);
+      16    const overlay = $('overlay'), overlayTitle = $('overlay-title
+          '), overlayText = $('overlay-text'), startBtn = $('start');
+      17 -  const scoreEl = $('score'), hiEl = $('hi');                  
+      17 +  const scoreEl = $('score'), hiEl = $('hi'), pauseBtn = $('pau
+         +se');                                                          
+      18    const stage = document.querySelector('.stage');
+      19 
+      20    // Brand colors come from style.css so the palette has one so
+          urce of truth.
+
+● Update(pete/game.js)
+  ⎿  Added 1 line, removed 1 line
+      253    const STARS = Array.from({ length: 22 }, () => [Math.floor(r
+           and(0, W)), Math.floor(rand(2, 56))]);
+      254    const PEBBLES = [[3, 5], [17, 9], [29, 4], [41, 12], [58, 7]
+           , [66, 13], [80, 6], [95, 10], [108, 4], [121, 11], [133, 8],
+           [147, 14]];
+      255 
+      256 -  let state, running = false, held = false, last = 0, deadAt =
+          - -1e9;                                                        
+      256 +  let state, running = false, paused = false, held = false, la
+          +st = 0, deadAt = -1e9;                                        
+      257    let hi = 0;
+      258    try { hi = parseInt(localStorage.getItem(HI_KEY), 10) || 0;
+           } catch { /* storage unavailable */ }
+      259 
+
+● Update(pete/game.js)
+  ⎿  Added 1 line
+      302      running = false;
+      303      state.dead = true;
+      304      deadAt = performance.now();
+      305 +    pauseBtn.hidden = true;                                   
+      306      if (state.score > hi) {
+      307        hi = state.score;
+      308        try { localStorage.setItem(HI_KEY, String(hi)); } catch
+           { /* storage unavailable */ }
+
+● Update(pete/game.js)
+  ⎿  Added 26 lines, removed 2 lines
+      471 
+      472    // ---- Loop ----
+      473    function frame(now) {
+      474 -    if (!running) return;                                     
+      474 +    if (!running || paused) return;                           
+      475      const dt = Math.min(0.05, (now - last) / 1000);
+      476      last = now;
+      477      update(dt);
+      478      draw();
+      479 -    if (running) requestAnimationFrame(frame);                
+      479 +    if (running && !paused) requestAnimationFrame(frame);     
+      480    }
+      481 
+      482    function start() {
+      483      if (running || performance.now() - deadAt < 400) return;
+      484      reset();
+      485      overlay.hidden = true;
+      486 +    pauseBtn.hidden = false;                                  
+      487      startBtn.blur();
+      488      stage.scrollIntoView({ block: 'nearest' });
+      489      running = true;
+      490 +    paused = false;                                           
+      491      last = performance.now();
+      492      requestAnimationFrame(frame);
+      493    }
+      494 
+      495 +  function pause() {                                          
+      496 +    if (!running || paused) return;                           
+      497 +    paused = true;                                            
+      498 +    release();                                                
+      499 +    pauseBtn.hidden = true;                                   
+      500 +    overlayTitle.textContent = 'Paused';                      
+      501 +    overlayText.textContent = 'Pete is catching his breath. Ta
+          +p, or press Esc, to keep running.';                           
+      502 +    startBtn.textContent = 'Resume';                          
+      503 +    overlay.hidden = false;                                   
+      504 +    startBtn.focus({ preventScroll: true });                  
+      505 +  }                                                           
+      506 +                                                              
+      507 +  function resume() {                                         
+      508 +    if (!running || !paused) return;                          
+      509 +    paused = false;                                           
+      510 +    overlay.hidden = true;                                    
+      511 +    pauseBtn.hidden = false;                                  
+      512 +    startBtn.blur();                                          
+      513 +    last = performance.now();                                 
+      514 +    requestAnimationFrame(frame);                             
+      515 +  }                                                           
+      516 +                                                              
+      517    // ---- Input ----
+      518    function press() {
+      519      if (held) return;
+
+● Update(pete/game.js)
+  ⎿  Added 9 lines, removed 1 line
+      527 
+      528    const JUMP_KEYS = new Set([' ', 'ArrowUp', 'w', 'W']);
+      529    window.addEventListener('keydown', (e) => {
+      530 +    if (e.key === 'Escape') {                                 
+      531 +      if (running && !e.repeat) { e.preventDefault(); if (paus
+          +ed) resume(); else pause(); }                                 
+      532 +      return;                                                 
+      533 +    }                                                         
+      534      const jumpKey = JUMP_KEYS.has(e.key);
+      535      if (!jumpKey && e.key !== 'Enter') return;
+      536      if (document.activeElement === startBtn) return;
+      537      e.preventDefault();
+      538      if (e.repeat) return;
+      539      if (!running) start();
+      540 +    else if (paused) resume();                                
+      541      else if (jumpKey) press();
+      542    });
+      543    window.addEventListener('keyup', (e) => { if (JUMP_KEYS.has(
+           e.key)) release(); });
+      539 -  window.addEventListener('blur', release);                   
+      544 +  // Leaving the tab/app pauses the run instead of letting Pet
+          +e run blind.                                                  
+      545 +  window.addEventListener('blur', () => { release(); pause(); 
+          +});                                                           
+      546 +  document.addEventListener('visibilitychange', () => { if (do
+          +cument.hidden) pause(); });                                   
+      547 +  pauseBtn.addEventListener('click', pause);                  
+      548 
+      549    if (window.PointerEvent) {
+      550      canvas.addEventListener('pointerdown', (e) => {
+
+● Update(pete/game.js)
+  ⎿  Added 2 lines, removed 2 lines
+      566      canvas.addEventListener('touchcancel', release);
+      567    }
+      568 
+      569 -  // Tap anywhere on the overlay (or its button) to start.    
+      570 -  overlay.addEventListener('click', start);                   
+      569 +  // Tap anywhere on the overlay (or its button) to start or r
+          +esume.                                                        
+      570 +  overlay.addEventListener('click', () => { if (paused) resume
+          +(); else start(); });                                         
+      571 
+      572    reset();
+      573    draw();
+
+● Next, the pause button markup, its styles, and the updated control hints:
+
+● Bash(python3 - <<'EOF'
+      def sub(p, pairs):…)
+  ⎿  ok
+  ⎿  Updated pete/game.js +1 -1
+      498      release();
+      499      pauseBtn.hidden = true;
+      500      overlayTitle.textContent = 'Paused';
+      501 -    overlayText.textContent = 'Pete is catching his breath. Ta
+          -p, or press Esc, to keep running.';                           
+      501 +    overlayText.textContent = 'Tap or press Esc to keep runnin
+          +g.';                                                          
+      502      startBtn.textContent = 'Resume';
+      503      overlay.hidden = false;
+      504      startBtn.focus({ preventScroll: true });
+  ⎿  Updated pete/index.html +5 -4
+       7    <meta name="description" content="Potato Pete is making a run
+           for it. A Bill's Potato Shack game.">
+       8    <meta name="theme-color" content="#E3C16F">
+       9    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://
+          www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-
+          size='90'>🥔</text></svg>">
+      10 -  <link rel="stylesheet" href="../style.css?v=3">              
+      11 -  <script src="game.js?v=1" defer></script>                    
+      10 +  <link rel="stylesheet" href="../style.css?v=4">              
+      11 +  <script src="game.js?v=2" defer></script>                    
+      12  </head>
+      13  <body>
+      14    <header class="site-header">
+     ...
+      27 
+      28      <div class="stage pete-stage">
+      29        <canvas id="game" aria-label="Pete game: jump Potato Pete
+           over weeds, herbicide cans, beetles and low-flying birds"></ca
+          nvas>
+      30 +      <button type="button" class="pause-btn" id="pause" aria-l
+         +abel="Pause" hidden></button>                                  
+      31        <div class="overlay" id="overlay">
+      32          <p class="overlay-title" id="overlay-title">Ready?</p>
+      33          <p class="overlay-text" id="overlay-text">Jump the weed
+          s, cans, beetles &amp; low birds.</p>
+     ...
+      36      </div>
+      37 
+      38      <p class="controls-hint">
+      38 -      <span class="hint-desktop">Space, W, or &uarr; to jump. H
+         -old it to jump higher.</span>                                  
+      39 -      <span class="hint-touch">Tap the field to jump. Hold to j
+         -ump higher.</span>                                             
+      39 +      <span class="hint-desktop">Space, W, or &uarr; to jump. H
+         +old it to jump higher. Esc to pause.</span>                    
+      40 +      <span class="hint-touch">Tap the field to jump. Hold to j
+         +ump higher. Tap &#10074;&#10074; to pause.</span>              
+      41      </p>
+      42    </main>
+      43 
+  ⎿  Updated index.html +1 -1
+       7    <meta name="description" content="Bill's Potato Shack. We sel
+          l potatoes. Only potatoes. Proudly family-run.">
+       8    <meta name="theme-color" content="#E3C16F">
+       9    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://
+          www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-
+          size='90'>🥔</text></svg>">
+      10 -  <link rel="stylesheet" href="style.css?v=3">                 
+      10 +  <link rel="stylesheet" href="style.css?v=4">                 
+      11  </head>
+      12  <body>
+      13    <header class="site-header">
+  ⎿  Updated catch/index.html +1 -1
+       7    <meta name="description" content="Catch potatoes. Avoid carro
+          ts. A Bill's Potato Shack game.">
+       8    <meta name="theme-color" content="#E3C16F">
+       9    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://
+          www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-
+          size='90'>🥔</text></svg>">
+      10 -  <link rel="stylesheet" href="../style.css?v=3">              
+      10 +  <link rel="stylesheet" href="../style.css?v=4">              
+      11    <script src="game.js?v=2" defer></script>
+      12  </head>
+      13  <body>
+  ⎿  Updated style.css +27
+      287  .pete-stage .overlay-title { font-size: clamp(1.2rem, 5vw, 2re
+           m); }
+      288  .pete-stage .overlay-text { margin: 0 0 4px; max-width: 48ch;
+           font-size: clamp(.8rem, 2.5vw, 1rem); }
+      289  .pete-stage .overlay button { padding: 6px 22px; }
+      290 +/* Pause button: touch devices only (desktop uses Esc). Sits a
+          +bove Pete. */                                                 
+      291 +.pause-btn {                                                  
+      292 +  position: absolute;                                         
+      293 +  top: 6px;                                                   
+      294 +  left: 6px;                                                  
+      295 +  width: 32px;                                                
+      296 +  height: 32px;                                               
+      297 +  display: none;                                              
+      298 +  align-items: center;                                        
+      299 +  justify-content: center;                                    
+      300 +  gap: 5px;                                                   
+      301 +  padding: 0;                                                 
+      302 +  background: rgba(251,243,220,.85);                          
+      303 +  border: 2px solid var(--russet);                            
+      304 +  border-radius: 8px;                                         
+      305 +  cursor: pointer;                                            
+      306 +}                                                             
+      307 +.pause-btn::before,                                           
+      308 +.pause-btn::after {                                           
+      309 +  content: "";                                                
+      310 +  width: 5px;                                                 
+      311 +  height: 14px;                                               
+      312 +  background: var(--russet-dark);                             
+      313 +}                                                             
+      314 +@media (hover: none), (pointer: coarse) {                     
+      315 +  .pause-btn:not([hidden]) { display: flex; }                 
+      316 +}                                                             
+      317  .controls-hint { margin: 0; font-size: .85rem; color: var(--ru
+           sset); }
+      318  .hint-touch { display: none; }
+      319  @media (hover: none), (pointer: coarse) {
+
+● I'll check the button and the pause overlay at phone width:
+
+● Bash(S=/tmp/claude-1000/-home-steebe-Documents-Development-Repositories-steebe
+      -billspotatoshack/868192f4-ad09-441b-a8d8-d38195a92f2e/scratchpad/site
+      R=/home/steebe/D…)
+  ⎿  -rw-rw-r-- 1 steebe steebe 41255 Nov 20 15:12 /tmp/claude-1000/-home-s
+     teebe-Documents-Development-Repositories-steebe-billspotatoshack/86819
+     2f4-ad09-441b-a8d8-d38195a92f2e/scratchpad/site/m-pause.png
+     … +3 lines (ctrl+o to expand)
+  ⎿  Shell cwd was reset to /home/steebe/Documents/Development/Repositories
+     /steebe/billspotatoshack
+
+  Read 2 files (ctrl+o to expand)
+
+● Both fixes are in.
+
+  1. Birds now show up much sooner. They were there before, but they didn't
+  unlock until 450 points (about 28 seconds) and were only about 1 in 5 spawns,
+  so a normal run rarely reached them. The unlocks are now:
+
+  ┌────────────────────┬─────┬────────────────────────┐
+  │       Hazard       │ Was │          Now           │
+  ├────────────────────┼─────┼────────────────────────┤
+  │ Large weed         │ 150 │ 80                     │
+  ├────────────────────┼─────┼────────────────────────┤
+  │ Beetle             │ 250 │ 120                    │
+  ├────────────────────┼─────┼────────────────────────┤
+  │ Low and high birds │ 450 │ 180 (about 11 seconds) │
+  └────────────────────┴─────┴────────────────────────┘
+
+  Birds also spawn a bit more often, about 30% of hazards once they're unlocked.
+
+  2. Pause
+  - Desktop: Esc pauses and resumes. Space, Enter, or clicking the overlay also
+    resumes.
+  - Touch: a small pause button sits in the top-left corner of the play area,
+    above Pete, and only appears while a run is going. It's hidden on desktop
+    since Esc covers it. The paused screen reads "Paused" with a Resume button,
+    and tapping anywhere on it resumes.
+  - Bonus: the game also pauses itself when you switch tabs or apps or the
+    window loses focus, so Pete doesn't keep running while you're away.
+  - The control hints under the game now mention pausing.
+
+  I took headless Chrome screenshots at phone width: the pause button sits clear
+  of Pete even at the top of his highest jump, and the paused screen fits in
+  the small play area. I haven't pressed Esc or tapped the button with real
+  input, so that's worth trying in a browser.
+
+  The files touched are pete/game.js, pete/index.html and style.css, plus a
+  cache-buster bump to ?v=4 on all three pages so browsers pick up the new CSS.
+  Nothing is committed yet.
+
+✻ Brewed for 1m 14s · done 3:12 PM
+
+❯ This is incredible. Nice updates. Another iteration to consider: it looks     
+  like enemies (hazards as you call them) spawn one at a time. In The Dino      
+  Game, pterodactyls (birds in our case) can spawn in paralle with other        
+  hazards, making it more difficult to determine when to jump. What do you      
+  think about introducing a similar mechanic to Pete? We have to make sure that 
+  we don't create scenarios in which Pete could not pass the hazards; we have   
+  to make the game fair enough to get as high a score as possible without       
+  explicit impedence beyond the user's hand-eye coordination.                   
+
+  Read 1 file (ctrl+o to expand)
+
+● Updated plan
+  ⎿  /plan to preview
+
+● Approved Claude's plan
+  ⎿  Plan saved to: ~/.claude/plans/hi-buddy-i-m-back-polished-walrus.md · /plan
+     to edit
+     Pete: birds that spawn alongside other hazards, with a fairness guarantee
+
+     Context
+
+     Right now pete/game.js spawns hazards one at a time from a single distance
+     countdown (spawn() / s.next). The user wants birds to also appear alongside
+     the ground hazards, as pterodactyls do in the Dino Game, so it's harder to
+     read when to jump. There is a hard constraint: no impossible situations.
+     Any loss should come down to timing alone.
+
+     Two facts make naive overlap unsafe:
+     - A high bird directly over a ground hazard is a guaranteed death. Clearing
+       the hazard needs a jump, and any jump hits the high bird. Its hitbox
+       bottom is 2px above Pete's head (birdHigh top = GROUND-20, box
+       [1,3,2,2]).
+     - Positions on screen are misleading. Birds fly at 1.25× ground speed and
+       beetles at 1.2×, so a bird that spawns behind a weed can catch up with it
+       by the time it reaches Pete.
+
+     So fairness has to be judged by when each hazard reaches Pete, not by where
+     it is on screen.
+
+     Approach: a fairness check based on arrival times
+
+     All changes are in pete/game.js.
+
+     1. Jump physics, measured once
+
+     At load, simulate the existing jump constants (G, JUMP_V, HOLD_F, MAX_HOLD)
+     with a full hold at a small fixed timestep to get:
+     - AIR_FULL: total airtime (~0.53s).
+     - riseTo(h): time to climb to height h.
+     - timeAbove(h): how long Pete stays above h.
+
+     The fairness rules below use these measured values plus margins. If the
+     jump is retuned later, the rules adjust automatically instead of relying on
+     hard-coded constants.
+
+     2. Each hazard's time window at Pete
+
+     window(o) returns [t0, t1], the seconds from now during which hazard o's
+     hitbox overlaps Pete's hitbox horizontally. It's computed as (box.x − 
+     petеRight) / (speed·mult) to (box.x + box.w − peteLeft) / (speed·mult),
+     using the existing hitbox() and KINDS[k].mult.
+
+     Hazards fall into two groups:
+     - Jump hazards (weeds, can, beetle, low bird): Pete must be above need =
+       how far the hitbox top sits above GROUND (weedS 12, weedL 18, can 13,
+       beetle 7, low bird 11).
+     - Stay-down hazards (high bird): Pete must be on the ground (h < 2) for the
+       whole window.
+
+     3. isFair(candidate): check the candidate against every hazard already on 
+     screen
+
+     - Jump hazard vs. jump hazard is fine if either:
+       - One jump clears both: the combined window (earliest t0 to latest t1) ≤
+         timeAbove(max need) − SLACK. This covers the existing double-weed
+         cluster and a low bird directly over a weed.
+       - Pete can land and jump again: the gap between the windows ≥ AIR_FULL − 
+         timeAbove(need₂) + REACT.
+     - Jump hazard vs. high bird is fine only if the bird's window (padded by
+       SLACK) stays outside the jump's envelope, [t0 − riseTo(need) − SLACK, t0 
+       − riseTo(need) + AIR_FULL + SLACK]. The envelope is the conservative span
+       in which Pete is airborne for that hazard.
+     - High bird vs. high bird is always fine, because both just need Pete to
+       stay down.
+     - Constants: SLACK = 0.08s, which also covers the small speed increase
+       while a hazard approaches, and REACT = 0.12s.
+
+     This check is deliberately conservative. It may turn down some combinations
+     that skilled play could actually survive, but it never lets an impossible
+     one through.
+
+     4. Spawning
+
+     - Main queue: keep spawn() as it is, but run isFair before pushing
+       nextKind. If it fails, set s.next = 12 and try again a few px later with
+       the same nextKind. The current gap formula and the 60px closing heuristic
+       stay, and isFair backs them up.
+     - New parallel bird track: a separate distance countdown, s.birdNext. It
+       turns on at PARALLEL_AT = 300, with gaps of rand(1.2, 2.5) × (speed·0.6 +
+       80) px.
+       - When it fires, it picks birdHigh (or birdLow at about 30% once the
+         score reaches PARALLEL_LOW_AT = 800) and spawns it at x = W + 4 only if
+         isFair passes. Otherwise it retries in 15px.
+       - Because both tracks call isFair against everything on screen, neither
+         can trap the other.
+     - Worst case: if a spawn can't fit, it just waits. Nothing is ever forced.
+
+     Verification
+
+     1. Fairness fuzz test (scratchpad, not committed). Load a debug copy of
+        game.js in Node with stubbed DOM/canvas, and expose state, update,
+        KINDS. Add an autopilot bot that, every 1/60s step, simulates candidate
+        actions forward ~1.5s against the hazards currently on screen (wait;
+        jump with a 80/150/300ms hold) and takes one that survives. Run 50+ runs
+        with different random seeds to 6000+ points each.
+        - Pass: the bot never ends up with no surviving option.
+        - Fail: the hazard snapshot gets logged.
+        - Also count parallel-bird spawns to confirm the feature actually fires.
+     2. Screenshots: headless Chrome of a debug state with a high bird between
+        two weeds.
+     3. Playtest: play past 300 points in a browser and check that high birds
+        sometimes pass while ground hazards are on screen, and that every
+        situation is clearable.
+     4. node --check pete/game.js. Size stays far under the 512 KB budget.
+
+● Bash(grep -n "SPAWNS\|function spawn\|function
+      hitbox\|s.next\|nextKind\|tumbleIn: 2\|const NIGHT_EVERY" pete/game.js &&
+      sed -n '/function spawn/,/^  }/p;/function h…)
+  ⎿  9:  const NIGHT_EVERY = 700, ARID_AT = 1500, HI_KEY = 'pete-hi';
+     237:  const SPAWNS = [
+     247:    const pool = SPAWNS.filter((p) => score >= p.at);
+     … +28 lines (ctrl+o to expand)
+
+● I'm switching isFair to a dynamic-programming search over Pete's frame state,
+  so it can check all jump timings and hazards at once in under a millisecond. 
+  · summary
+
+● Update(pete/game.js)
+  ⎿  Added 108 lines, removed 3 lines
+      281 
+      282    function spawn() {
+      283      const s = state;
+      284 -    s.obs.push({ k: s.nextKind, x: W + 4, ph: Math.random() })
+          -;                                                             
+      284 +    const o = { k: s.nextKind, x: W + 4, ph: Math.random() }; 
+      285      let extra = 0;
+      286 -    if (s.nextKind === 'weedS' && s.score > 300 && Math.random
+          -() < 0.4) {                                                   
+      287 -      s.obs.push({ k: 'weedS', x: W + 11, ph: 0 });           
+      286 +    if (s.nextKind === 'weedS' && s.score > 300 && Math.random
+          +() < 0.4 && isFair([o, { k: 'weedS', x: W + 11, ph: 0 }])) {  
+      287 +      s.obs.push(o, { k: 'weedS', x: W + 11, ph: 0 });        
+      288        extra = 7;
+      289 +    } else if (isFair([o])) {                                 
+      290 +      s.obs.push(o);                                          
+      291 +    } else {                                                  
+      292 +      s.next = 12; // No fair way through yet; try again a few
+          + px later.                                                    
+      293 +      return;                                                 
+      294      }
+      295      s.nextKind = pickKind(s.score);
+      296      // Moving hazards close the gap on whatever is ahead of th
+           em, so give them extra room.
+     ...
+      298      s.next = rand(1, 1.8) * (s.speed * 0.55 + 70) + extra + cl
+           osing;
+      299    }
+      300 
+      301 +  // Birds on their own track, so they can overlap the ground 
+          +hazards.                                                      
+      302 +  function spawnBird() {                                      
+      303 +    const s = state;                                          
+      304 +    const k = s.score >= PARALLEL_LOW_AT && Math.random() < 0.
+          +3 ? 'birdLow' : 'birdHigh';                                   
+      305 +    const o = { k, x: W + 4, ph: Math.random() };             
+      306 +    if (isFair([o])) {                                        
+      307 +      s.obs.push(o);                                          
+      308 +      s.birdNext = rand(1.2, 2.5) * (s.speed * 0.6 + 80);     
+      309 +    } else {                                                  
+      310 +      s.birdNext = 15;                                        
+      311 +    }                                                         
+      312 +  }                                                           
+      313 +                                                              
+      314    function hitbox(o) {
+      315      const K = KINDS[o.k], b = K.box;
+      316      return { x: o.x + b[0], y: K.top + b[1], w: K.w - b[0] - b
+           [2], h: K.h - b[1] - b[3] };
+      317    }
+      318 
+      319 +  // ---- Fairness ----                                       
+      320 +  // A hazard only spawns if, with it added, some sequence of 
+          +jumps still gets Pete                                         
+      321 +  // past everything on screen. Hitboxes are padded in time an
+          +d height, so the                                              
+      322 +  // path has slack for human timing. On the ground Pete's sta
+          +te is just "which                                             
+      323 +  // frame", so this is a small dynamic program over frames us
+          +ing the real jump                                             
+      324 +  // physics.                                                 
+      325 +  const STEP = 1 / 60, HORIZON = 160, SAFE_T = 0.035, SAFE_Y =
+          + 1;                                                           
+      326 +  const HOLDS = [5, 8, 11, 14]; // frames the jump is held (qu
+          +ick tap -> full hold)                                         
+      327 +                                                              
+      328 +  // Pete's height per frame for one jump, following the same 
+          +rules as update().                                            
+      329 +  function fly(h, vy, air, released, holdFrames) {            
+      330 +    const out = [];                                           
+      331 +    for (let f = 1; f < 120; f++) {                           
+      332 +      if (f > holdFrames) released = true;                    
+      333 +      air += STEP;                                            
+      334 +      if (released && air >= MIN_HOLD && vy > CUT_V) vy = CUT_
+          +V;                                                            
+      335 +      const floating = !released && vy > 0 && air < MAX_HOLD; 
+      336 +      vy -= G * (floating ? HOLD_F : 1) * STEP;               
+      337 +      h += vy * STEP;                                         
+      338 +      if (h <= 0) { out.push(0); break; }                     
+      339 +      out.push(h);                                            
+      340 +    }                                                         
+      341 +    return out;                                               
+      342 +  }                                                           
+      343 +  const TRAJ = HOLDS.map((d) => fly(0, JUMP_V, 0, false, d)); 
+      344 +                                                              
+      345 +  function canSurvive(obs) {                                  
+      346 +    const s = state;                                          
+      347 +    // World scroll per frame, ramping speed the way update() 
+          +does.                                                         
+      348 +    const cum = new Float32Array(HORIZON + 1);                
+      349 +    let dist = s.dist;                                        
+      350 +    for (let k = 1; k <= HORIZON; k++) {                      
+      351 +      const speed = Math.min(MAX_SPEED, BASE_SPEED + Math.floo
+          +r(dist * SCORE_PER_PX) * RAMP);                               
+      352 +      dist += speed * STEP;                                   
+      353 +      cum[k] = dist - s.dist;                                 
+      354 +    }                                                         
+      355 +    const boxes = obs.map((o) => {                            
+      356 +      const b = hitbox(o), m = KINDS[o.k].mult, pad = SAFE_T *
+          + s.speed * m;                                                 
+      357 +      return { x: b.x - pad, w: b.w + pad * 2, y: b.y - SAFE_Y
+          +, h: b.h + SAFE_Y * 2, m };                                   
+      358 +    });                                                       
+      359 +    // The search can stop once every hazard has passed Pete. 
+      360 +    let end = 0;                                              
+      361 +    for (const b of boxes) {                                  
+      362 +      let k = 0;                                              
+      363 +      while (k < HORIZON && b.x - b.m * cum[k] + b.w > PX + 3)
+          + k++;                                                         
+      364 +      end = Math.max(end, k);                                 
+      365 +    }                                                         
+      366 +    const hit = (k, h) => {                                   
+      367 +      const py = GROUND - 10 - h;                             
+      368 +      for (const b of boxes) {                                
+      369 +        const x = b.x - b.m * cum[k];                         
+      370 +        if (PX + 3 < x + b.w && PX + 11 > x && py < b.y + b.h 
+          +&& py + 9 > b.y) return true;                                 
+      371 +      }                                                       
+      372 +      return false;                                           
+      373 +    };                                                        
+      374 +                                                              
+      375 +    const ok = new Uint8Array(HORIZON + 2);                   
+      376 +    // Follows a flight path from frame k; returns true if it 
+          +outlasts the search.                                          
+      377 +    const follow = (k, path) => {                             
+      378 +      for (let j = 0; j < path.length; j++) {                 
+      379 +        const f = k + 1 + j;                                  
+      380 +        if (f >= end) return true;                            
+      381 +        if (hit(f, path[j])) return false;                    
+      382 +      }                                                       
+      383 +      ok[k + path.length] = 1;                                
+      384 +      return false;                                           
+      385 +    };                                                        
+      386 +                                                              
+      387 +    if (s.grounded) {                                         
+      388 +      if (hit(0, 0)) return false;                            
+      389 +      ok[0] = 1;                                              
+      390 +    } else {                                                  
+      391 +      // Mid-air: the player can still let go now or keep hold
+          +ing.                                                          
+      392 +      const variants = [fly(s.h, s.vy, s.air, true, 0)];      
+      393 +      if (!s.released) variants.push(fly(s.h, s.vy, s.air, fal
+          +se, Math.max(0, HOLDS[3] - Math.round(s.air / STEP))));       
+      394 +      for (const v of variants) if (follow(0, v)) return true;
+      395 +    }                                                         
+      396 +    for (let k = 0; k < end; k++) {                           
+      397 +      if (!ok[k]) continue;                                   
+      398 +      if (!hit(k + 1, 0)) ok[k + 1] = 1;                      
+      399 +      for (const path of TRAJ) if (follow(k, path)) return tru
+          +e;                                                            
+      400 +    }                                                         
+      401 +    return ok[end] === 1;                                     
+      402 +  }                                                           
+      403 +                                                              
+      404 +  const isFair = (extra) => canSurvive(state.obs.concat(extra)
+          +);                                                            
+      405 +                                                              
+      406    function die(cause) {
+      407      running = false;
+      408      state.dead = true;
+
+● Bash(python3 - <<'EOF'
+      p='pete/game.js'; s=open(p).read()…)
+  ⎿  ok
+  ⎿  Updated pete/game.js +7 -1
+       7    const G = 1600, JUMP_V = 260, HOLD_F = 0.4, MAX_HOLD = 0.22,
+          MIN_HOLD = 0.08, CUT_V = 120, BUFFER = 0.1;
+       8    const BASE_SPEED = 160, MAX_SPEED = 400, RAMP = 0.12, SCORE_P
+          ER_PX = 0.1;
+       9    const NIGHT_EVERY = 700, ARID_AT = 1500, HI_KEY = 'pete-hi';
+      10 +  // Birds also get their own spawn track, so they can overlap 
+         +ground hazards.                                                
+      11 +  const PARALLEL_AT = 300, PARALLEL_LOW_AT = 800;              
+      12 
+      13    const canvas = document.getElementById('game');
+      14    const ctx = canvas.getContext('2d');
+     ...
+      263      state = {
+      264        dist: 0, score: 0, speed: BASE_SPEED, t: 0,
+      265        h: 0, vy: 0, air: 0, grounded: true, released: true, buf
+           fer: 0,
+      264 -      obs: [], next: 140, nextKind: 'weedS',                  
+      266 +      obs: [], next: 140, nextKind: 'weedS', birdNext: 200,   
+      267        nightT: 0, aridT: 0, dead: false,
+      268        clouds: [0, 1, 2].map((i) => ({ x: 40 + i * 100 + rand(0
+           , 40), y: rand(8, 40) })),
+      269        tumbles: [], tumbleIn: 2,
+     ...
+      456      // Hazards.
+      457      s.next -= dx;
+      458      if (s.next <= 0) spawn();
+      459 +    if (s.score >= PARALLEL_AT) {                             
+      460 +      s.birdNext -= dx;                                       
+      461 +      if (s.birdNext <= 0) spawnBird();                       
+      462 +    }                                                         
+      463      for (const o of s.obs) o.x -= dx * KINDS[o.k].mult;
+      464      s.obs = s.obs.filter((o) => o.x + KINDS[o.k].w > -2);
+      465 
+  ⎿  Updated pete/index.html +1 -1
+       8    <meta name="theme-color" content="#E3C16F">
+       9    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://
+          www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-
+          size='90'>🥔</text></svg>">
+      10    <link rel="stylesheet" href="../style.css?v=4">
+      11 -  <script src="game.js?v=2" defer></script>                    
+      11 +  <script src="game.js?v=3" defer></script>                    
+      12  </head>
+      13  <body>
+      14    <header class="site-header">
+
+● I'm writing a Node fuzz harness that loads a debug build with stubbed DOM and
+  plays it with an independent planning bot, next. · summary
+
+● Bash(S=/tmp/claude-1000/-home-steebe-Documents-Development-Repositories-steebe
+      -billspotatoshack/868192f4-ad09-441b-a8d8-d38195a92f2e/scratchpad
+      R=/home/steebe/Docume…)
+  ⎿  run 1: STUCK at score 5702 [["birdHigh",-13],["birdLow",46]]
+     run 2: STUCK at score 5480 [["weedS",-3],["weedS",4],["birdLow",46]]
+     run 4: STUCK at score 2935 [["weedS",-3],["weedS",4],["birdLow",46]]
+     … +30 lines (ctrl+o to expand)
+  ⎿  Shell cwd was reset to /home/steebe/Documents/Development/Repositories
+     /steebe/billspotatoshack
+
+● The bot showed no deaths across 60 runs and got stuck 31 times, mostly on a
+  low bird in front of Pete, because the check accepts a new bird if either jump
+  choice gets through. That's a real fairness gap, so I'm tightening the check
+  so mid-air spawns must be survivable whichever way the current jump goes. 
+  · summary
+
+● Update(pete/game.js)
+  ⎿  Added 29 lines, removed 24 lines
+      374        return false;
+      375      };
+      376 
+      377 -    const ok = new Uint8Array(HORIZON + 2);                   
+      378 -    // Follows a flight path from frame k; returns true if it 
+          -outlasts the search.                                          
+      379 -    const follow = (k, path) => {                             
+      380 -      for (let j = 0; j < path.length; j++) {                 
+      381 -        const f = k + 1 + j;                                  
+      382 -        if (f >= end) return true;                            
+      383 -        if (hit(f, path[j])) return false;                    
+      377 +    // Is there a way through, starting on the ground or partw
+          +ay through a jump (`start`)?                                  
+      378 +    const solve = (start) => {                                
+      379 +      const ok = new Uint8Array(HORIZON + 130);               
+      380 +      // Follows a flight path from frame k; returns true if i
+          +t outlasts the search.                                        
+      381 +      const follow = (k, path) => {                           
+      382 +        for (let j = 0; j < path.length; j++) {               
+      383 +          const f = k + 1 + j;                                
+      384 +          if (f >= end) return true;                          
+      385 +          if (hit(f, path[j])) return false;                  
+      386 +        }                                                     
+      387 +        ok[k + path.length] = 1;                              
+      388 +        return false;                                         
+      389 +      };                                                      
+      390 +      if (!start) {                                           
+      391 +        if (hit(0, 0)) return false;                          
+      392 +        ok[0] = 1;                                            
+      393 +      } else if (follow(0, start)) {                          
+      394 +        return true;                                          
+      395        }
+      385 -      ok[k + path.length] = 1;                                
+      386 -      return false;                                           
+      396 +      for (let k = 0; k < end; k++) {                         
+      397 +        if (!ok[k]) continue;                                 
+      398 +        if (!hit(k + 1, 0)) ok[k + 1] = 1;                    
+      399 +        for (const path of TRAJ) if (follow(k, path)) return t
+          +rue;                                                          
+      400 +      }                                                       
+      401 +      return ok[end] === 1;                                   
+      402      };
+      403 
+      389 -    if (s.grounded) {                                         
+      390 -      if (hit(0, 0)) return false;                            
+      391 -      ok[0] = 1;                                              
+      392 -    } else {                                                  
+      393 -      // Mid-air: the player can still let go now or keep hold
+          -ing.                                                          
+      394 -      const variants = [fly(s.h, s.vy, s.air, true, 0)];      
+      395 -      if (!s.released) variants.push(fly(s.h, s.vy, s.air, fal
+          -se, Math.max(0, HOLDS[3] - Math.round(s.air / STEP))));       
+      396 -      for (const v of variants) if (follow(0, v)) return true;
+      397 -    }                                                         
+      398 -    for (let k = 0; k < end; k++) {                           
+      399 -      if (!ok[k]) continue;                                   
+      400 -      if (!hit(k + 1, 0)) ok[k + 1] = 1;                      
+      401 -      for (const path of TRAJ) if (follow(k, path)) return tru
+          -e;                                                            
+      402 -    }                                                         
+      403 -    return ok[end] === 1;                                     
+      404 +    if (s.grounded) return solve(null);                       
+      405 +    // Mid-air, the player may already have committed to letti
+          +ng go or holding on                                           
+      406 +    // before this hazard appeared, so both have to leave a wa
+          +y through.                                                    
+      407 +    if (!solve(fly(s.h, s.vy, s.air, true, 0))) return false; 
+      408 +    return s.released || solve(fly(s.h, s.vy, s.air, false, Ma
+          +th.max(0, HOLDS[3] - Math.round(s.air / STEP))));             
+      409    }
+      410 
+      411    const isFair = (extra) => canSurvive(state.obs.concat(extra)
+           );
+
+● Bash(S=/tmp/claude-1000/-home-steebe-Documents-Development-Repositories-steebe
+      -billspotatoshack/868192f4-ad09-441b-a8d8-d38195a92f2e/scratchpad
+      R=/home/steebe/Docume…)  ⎿  run 15: STUCK at score 433 [["beetle",39],["birdHigh",137]]
+     runs=60 target=6000 jitter=0 died=0 stuck=1 avgScore=5907 birds=7469 b
+     irdsWithGroundHazardOnScreen=2488
+  ⎿  Shell cwd was reset to /home/steebe/Documents/Development/Repositories
+     /steebe/billspotatoshack
+
+● One stuck case is left: a beetle right at Pete with a high bird behind it.
+  Before blaming the bot, I'll trace that run frame by frame.
+
+● Bash(S=/tmp/claude-1000/-home-steebe-Documents-Development-Repositories-steebe
+      -billspotatoshack/868192f4-ad09-441b-a8d8-d38195a92f2e/scratchpad
+      R=/home/steebe/Docume…)
+  ⎿  418 A 41.7 hold 0 [["beetle",220.1]]
+     418 A 42.9 hold 0 [["beetle",215.9]]
+     419 A 43.6 hold 0 [["beetle",211.7]]
+     … +42 lines (ctrl+o to expand)
+  ⎿  Shell cwd was reset to /home/steebe/Documents/Development/Repositories
+     /steebe/billspotatoshack
+
+● The bot jumped very early, with the beetle still 140px out, then landed just
+  in front of it. Next I'll check whether a way through actually existed at the
+  moment it got stuck:
+
+● Bash(S=/tmp/claude-1000/-home-steebe-Documents-Development-Repositories-steebe
+      -billspotatoshack/868192f4-ad09-441b-a8d8-d38195a92f2e/scratchpad
+      R=/home/steebe/Docume…)
+  ⎿  state 211.96 [{"x":39.63920000000009,"y":97,"w":10,"h":6},{"x":137.855
+     8333333334,"y":87,"w":13,"h":5}]
+     20 4.2 8.1 11.9 15.6
+     … +6 lines (ctrl+o to expand)
+  ⎿  Shell cwd was reset to /home/steebe/Documents/Development/Repositories
+     /steebe/billspotatoshack
+
+● The bot hit a timing-margin quirk, not a real hole in the game, since a safe
+  path existed. I'm giving the bot a slightly looser timing margin and
+  rerunning, including a variant with jittery frame timing. · summary
+
+● Bash(S=/tmp/claude-1000/-home-steebe-Documents-Development-Repositories-steebe
+      -billspotatoshack/868192f4-ad09-441b-a8d8-d38195a92f2e/scratchpad
+      R=/home/steebe/Docume…)
+  ⎿  == steady 60fps, 100 runs to 8000 ==
+     runs=100 target=8000 jitter=0 died=0 stuck=0 avgScore=8000 birds=16992
+      birdsWithGroundHazardOnScreen=5842
+     … +8 lines (ctrl+o to expand)
+  ⎿  Shell cwd was reset to /home/steebe/Documents/Development/Repositories
+     /steebe/billspotatoshack
+  ⎿  (timeout 10m)
+
+● Steady 60fps runs are flawless, but the jitter test exposed that the bot
+  counts jump holds in frames, so it breaks under ±25% frame-length swings that
+  real browsers don't produce. I'm next testing 120Hz and 144Hz displays plus
+  occasional dropped frames, with holds timed in seconds. · summary
+
+● Bash(S=/tmp/claude-1000/-home-steebe-Documents-Development-Repositories-steebe
+      -billspotatoshack/868192f4-ad09-441b-a8d8-d38195a92f2e/scratchpad
+      R=/home/steebe/Docume…)
+  ⎿  runs=100 target=8000 hz=NaN drop=0 died=0 stuck=0 avgScore=NaN birds=0
+      birdsWithGroundHazardOnScreen=0
+     runs=100 target=8000 hz=NaN drop=0 died=0 stuck=0 avgScore=NaN birds=0
+     … +5 lines (ctrl+o to expand)
+  ⎿  Shell cwd was reset to /home/steebe/Documents/Development/Repositories
+     /steebe/billspotatoshack
+
+● Bash(S=/tmp/claude-1000/-home-steebe-Documents-Development-Repositories-steebe
+      -billspotatoshack/868192f4-ad09-441b-a8d8-d38195a92f2e/scratchpad
+      R=/home/steebe/Docume…)
+  ⎿  runs=100 target=8000 hz=NaN drop=0 died=0 stuck=0 avgScore=NaN birds=0
+      birdsWithGroundHazardOnScreen=0
+     runs=100 target=8000 hz=NaN drop=0 died=0 stuck=0 avgScore=NaN birds=0
+     … +5 lines (ctrl+o to expand)
+  ⎿  Shell cwd was reset to /home/steebe/Documents/Development/Repositories
+     /steebe/billspotatoshack
+
+● Bash(S=/tmp/claude-1000/-home-steebe-Documents-Development-Repositories-steebe
+      -billspotatoshack/868192f4-ad09-441b-a8d8-d38195a92f2e/scratchpad
+      R=/home/steebe/Docume…)
+  ⎿  runs=100 target=8000 hz=60 drop=0 died=0 stuck=0 avgScore=8000 birds=1
+     6992 birdsWithGroundHazardOnScreen=5842
+     run 80: DIED at score 421 [["birdHigh",34],["weedS",107],["weedS",114]
+     … +12 lines (ctrl+o to expand)
+  ⎿  Shell cwd was reset to /home/steebe/Documents/Development/Repositories
+     /steebe/billspotatoshack
+  ⎿  (timeout 10m)
+
+● At 120Hz, 144Hz and with dropped frames the bot's failures come from the game:
+  update(dt) uses whatever frame time the browser supplies, so Pete's jumps
+  vary by refresh rate and the fairness check drifts. I'm switching to a fixed
+  1/120s physics timestep next. · summary
+
+● Bash(python3 - <<'EOF'
+      p='pete/game.js'; s=open(p).read()…)
+  ⎿  9:  const STEP = 1 / 120;
+     331:  const HOLDS = [0.08, 0.13, 0.18, 0.23].map((t) => Math.round(t /
+      STEP));
+     … +7 lines (ctrl+o to expand)
+  ⎿  Updated pete/game.js +12 -6
+       5    const W = 300, H = 120, GROUND = 104, PX = 24, CROPS = 88;
+       6    // Jump physics (px, seconds). Holding the jump lowers gravit
+          y on the way up.
+       7    const G = 1600, JUMP_V = 260, HOLD_F = 0.4, MAX_HOLD = 0.22,
+          MIN_HOLD = 0.08, CUT_V = 120, BUFFER = 0.1;
+       8 +  // Physics runs in fixed steps, so Pete jumps the same on 60H
+         +z and 144Hz screens.                                           
+       9 +  const STEP = 1 / 120;                                        
+      10    const BASE_SPEED = 160, MAX_SPEED = 400, RAMP = 0.12, SCORE_P
+          ER_PX = 0.1;
+      11    const NIGHT_EVERY = 700, ARID_AT = 1500, HI_KEY = 'pete-hi';
+      12    // Birds also get their own spawn track, so they can overlap 
+          ground hazards.
+     ...
+      326    // path has slack for human timing. On the ground Pete's sta
+           te is just "which
+      327    // frame", so this is a small dynamic program over frames us
+           ing the real jump
+      328    // physics.
+      327 -  const STEP = 1 / 60, HORIZON = 160, SAFE_T = 0.035, SAFE_Y =
+          - 1;                                                           
+      328 -  const HOLDS = [5, 8, 11, 14]; // frames the jump is held (qu
+          -ick tap -> full hold)                                         
+      329 +  const HORIZON = 320, SAFE_T = 0.035, SAFE_Y = 1;            
+      330 +  // How long the jump is held, quick tap to full hold, in phy
+          +sics steps.                                                   
+      331 +  const HOLDS = [0.08, 0.13, 0.18, 0.23].map((t) => Math.round
+          +(t / STEP));                                                  
+      332 
+      333    // Pete's height per frame for one jump, following the same 
+           rules as update().
+      334    function fly(h, vy, air, released, holdFrames) {
+      335      const out = [];
+      333 -    for (let f = 1; f < 120; f++) {                           
+      336 +    for (let f = 1; f < 240; f++) {                           
+      337        if (f > holdFrames) released = true;
+      338        air += STEP;
+      339        if (released && air >= MIN_HOLD && vy > CUT_V) vy = CUT_
+           V;
+     ...
+      379 
+      380      // Is there a way through, starting on the ground or partw
+           ay through a jump (`start`)?
+      381      const solve = (start) => {
+      379 -      const ok = new Uint8Array(HORIZON + 130);               
+      382 +      const ok = new Uint8Array(HORIZON + 240);               
+      383        // Follows a flight path from frame k; returns true if i
+           t outlasts the search.
+      384        const follow = (k, path) => {
+      385          for (let j = 0; j < path.length; j++) {
+     ...
+      589    }
+      590 
+      591    // ---- Loop ----
+      592 +  let acc = 0;                                                
+      593    function frame(now) {
+      594      if (!running || paused) return;
+      591 -    const dt = Math.min(0.05, (now - last) / 1000);           
+     … +21 lines (ctrl+o to expand)
+
+● Next I'm wiring the harness to the real frame loop with a tick() that mirrors
+  frame()'s accumulator, so the bot plans on the 1/120s grid but acts only once
+  per rendered frame. · summary
+
+● Bash(S=/tmp/claude-1000/-home-steebe-Documents-Development-Repositories-steebe
+      -billspotatoshack/868192f4-ad09-441b-a8d8-d38195a92f2e/scratchpad
+      R=/home/steebe/Docume…)
+  ⎿  run 86: STUCK at score 105 [["can",45],["weedS",241]]
+     run 96: STUCK at score 705 [["weedS",47],["birdHigh",152]]
+     runs=100 target=8000 hz=60 drop=0 died=0 stuck=25 avgScore=6142 birds=
+     … +12 lines (ctrl+o to expand)
+  ⎿  Shell cwd was reset to /home/steebe/Documents/Development/Repositories
+     /steebe/billspotatoshack
+  ⎿  (timeout 10m)
+
+● The bot's jump planning assumes a 1/120s physics step, but at 60Hz or 30Hz it
+  can only act every second or fourth step, so it misses the narrow timings it
+  picks. I'm changing it to plan only actions possible at its actual frame rate.
+  · summary
+
+● Bash(S=/tmp/claude-1000/-home-steebe-Documents-Development-Repositories-steebe
+      -billspotatoshack/868192f4-ad09-441b-a8d8-d38195a92f2e/scratchpad
+      R=/home/steebe/Docume…)
+  ⎿  run 79: STUCK at score 953 [["birdLow",54],["birdHigh",167]]
+     runs=100 target=8000 hz=60 drop=0 died=0 stuck=1 avgScore=7930 birds=1
+     6848 birdsWithGroundHazardOnScreen=6524
+     … +11 lines (ctrl+o to expand)
+  ⎿  Shell cwd was reset to /home/steebe/Documents/Development/Repositories
+     /steebe/billspotatoshack
+  ⎿  (timeout 10m)
+
+● 120Hz runs cleanly, while the other rates each have 1 to 4 stuck runs per 100,
+  mostly a low bird directly in front of a grounded Pete. Next I'll trace one
+  to see if the bug is in the game or the bot. · summary
+
+● Bash(S=/tmp/claude-1000/-home-steebe-Documents-Development-Repositories-steebe
+      -billspotatoshack/868192f4-ad09-441b-a8d8-d38195a92f2e/scratchpad
+      R=/home/steebe/Docume…)
+  ⎿  935 A 4.2 rel false hold 0.067 [["birdLow",281.3]]
+     935 A 8.2 rel false hold 0.050 [["birdLow",275.7]]
+     936 A 12.1 rel false hold 0.033 [["birdLow",270]]
+     … +39 lines (ctrl+o to expand)
+  ⎿  Shell cwd was reset to /home/steebe/Documents/Development/Repositories
+     /steebe/billspotatoshack
+
+● The bot jumped with plenty of room, but landed with the low bird about 11px
+  closer than its own plan predicted. I want to find that discrepancy rather
+  than wave it off:
+
+● Bash(S=/tmp/claude-1000/-home-steebe-Documents-Development-Repositories-steebe
+      -billspotatoshack/868192f4-ad09-441b-a8d8-d38195a92f2e/scratchpad
+      R=/home/steebe/Docume…)
+  ⎿  Error: Exit code 1
+     /tmp/claude-1000/-home-steebe-Documents-Development-Repositories-steebe-bil
+     lspotatoshack/868192f4-ad09-441b-a8d8-d38195a92f2e/scratchpad/fuzz/probe.js
+     :5
+     console.log('TRAJ lengths (steps):', TRAJ.map((t) => t.length), 'HOLDS', 
+     HOLDS, 'SPF', SPF);
+                                          ^
+
+     ReferenceError: TRAJ is not defined
+         at Object.<anonymous> (/tmp/claude-1000/-home-steebe-Documents-Developm
+     ent-Repositories-steebe-billspotatoshack/868192f4-ad09-441b-a8d8-d38195a92f
+     2e/scratchpad/fuzz/probe.js:5:38)
+         at Module._compile (node:internal/modules/cjs/loader:1781:14)
+         at Object..js (node:internal/modules/cjs/loader:1913:10)
+         at Module.load (node:internal/modules/cjs/loader:1505:32)
+     … +6 lines (ctrl+o to expand)
+
+● Bash(S=/tmp/claude-1000/-home-steebe-Documents-Development-Repositories-steebe
+      -billspotatoshack/868192f4-ad09-441b-a8d8-d38195a92f2e/scratchpad
+      R=/home/steebe/Docume…)
+  ⎿  TRAJ lengths (steps): [ 39, 49, 58, 64 ] HOLDS [ 10, 16, 22, 28 ] SPF
+     2
+     real airtime frames 20 = 40 steps; heights 4.2 8.2 12.1 15.7 19.2 20.9
+     … +3 lines (ctrl+o to expand)
+  ⎿  Shell cwd was reset to /home/steebe/Documents/Development/Repositories
+     /steebe/billspotatoshack
+
+● The predicted arc matches the real one exactly, so the physics model is sound.
+  Next I'll dump the bot's full plan at the moment it decided to jump:
+
+● Bash(S=/tmp/claude-1000/-home-steebe-Documents-Development-Repositories-steebe
+      -billspotatoshack/868192f4-ad09-441b-a8d8-d38195a92f2e/scratchpad
+      R=/home/steebe/Docume…)
+  ⎿  function plan(s) {
+       const boxes = s.obs.map((o) => { const b = P.hitbox(o), pad = 0.5 +
+     0.015 * s.speed * K[o.k].mult; return { ...b, x: b.x - pad, w: b.w + p
+     … +17 lines (ctrl+o to expand)
+  ⎿  Shell cwd was reset to /home/steebe/Documents/Development/Repositories
+     /steebe/billspotatoshack
+
+● Bash(S=/tmp/claude-1000/-home-steebe-Documents-Development-Repositories-steebe
+      -billspotatoshack/868192f4-ad09-441b-a8d8-d38195a92f2e/scratchpad
+      R=/home/steebe/Docume…)
+  ⎿  run 79: STUCK at score 953 [["birdLow",54],["birdHigh",167]]
+     runs=1 target=8000 hz=60 drop=0 died=0 stuck=1 avgScore=953 birds=22 b
+     irdsWithGroundHazardOnScreen=11
+     … +6 lines (ctrl+o to expand)
+  ⎿  Shell cwd was reset to /home/steebe/Documents/Development/Repositories
+     /steebe/billspotatoshack
+
+● Bash(S=/tmp/claude-1000/-home-steebe-Documents-Development-Repositories-steebe
+      -billspotatoshack/868192f4-ad09-441b-a8d8-d38195a92f2e/scratchpad
+      R=/home/steebe/Docume…)  ⎿  STUCK frame: grounded true end 57 boxes [[49,24.3,92.5,6,2.86],[162.5,
+     24.3,86.5,6,2.86]]
+      hold 10 hits at step 5 h 10.2
+     … +5 lines (ctrl+o to expand)
+  ⎿  Shell cwd was reset to /home/steebe/Documents/Development/Repositories
+     /steebe/billspotatoshack
+
+● The bot's predictions drifted because it assumed constant speed while the game
+  ramps up, so I'm adding that same ramp model to the bot. · summary
+
+● Bash(S=/tmp/claude-1000/-home-steebe-Documents-Development-Repositories-steebe
+      -billspotatoshack/868192f4-ad09-441b-a8d8-d38195a92f2e/scratchpad
+      R=/home/steebe/Docume…)
+  ⎿  runs=100 target=8000 hz=60 drop=0 died=0 stuck=0 avgScore=8000 birds=1
+     7061 birdsWithGroundHazardOnScreen=6553
+     runs=100 target=8000 hz=120 drop=0 died=0 stuck=0 avgScore=8000 birds=
+     … +8 lines (ctrl+o to expand)
+  ⎿  Shell cwd was reset to /home/steebe/Documents/Development/Repositories
+     /steebe/billspotatoshack
+  ⎿  (timeout 10m)
+
+● All four steady refresh rates now pass cleanly, but dropped frames still break
+  things because they delay the bot's input past its 15ms margin. I'm testing
+  whether a 25ms margin, which uses the game's 35ms slack, can absorb those
+  stutters. · summary
+
+● Bash(S=/tmp/claude-1000/-home-steebe-Documents-Development-Repositories-steebe
+      -billspotatoshack/868192f4-ad09-441b-a8d8-d38195a92f2e/scratchpad
+      R=/home/steebe/Docume…)
+  ⎿  runs=100 target=8000 hz=60 drop=0.03 died=0 stuck=3 avgScore=7787 bird
+     s=16780 birdsWithGroundHazardOnScreen=6358
+     runs=100 target=8000 hz=60 drop=0.08 died=0 stuck=2 avgScore=7854 bird
+     … +7 lines (ctrl+o to expand)
+  ⎿  Shell cwd was reset to /home/steebe/Documents/Development/Repositories
+     /steebe/billspotatoshack
+  ⎿  (timeout 10m)
+
+● Frame drops no longer cause deaths, but some runs still get stuck within the
+  25ms margin. I'll replan those with zero margin and only count them as stuck
+  if that also fails. · summary
+
+● Bash(S=/tmp/claude-1000/-home-steebe-Documents-Development-Repositories-steebe
+      -billspotatoshack/868192f4-ad09-441b-a8d8-d38195a92f2e/scratchpad
+      R=/home/steebe/Docume…)
+  ⎿  tightAfterStutter=3 runs=100 target=8000 hz=60 drop=0.03 died=0 stuck=
+     0 avgScore=8000 birds=17246 birdsWithGroundHazardOnScreen=6522
+     tightAfterStutter=1 runs=100 target=8000 hz=60 drop=0.08 died=0 stuck=
+     … +3 lines (ctrl+o to expand)
+  ⎿  Shell cwd was reset to /home/steebe/Documents/Development/Repositories
+     /steebe/billspotatoshack
+  ⎿  (timeout 10m)
+
+● Stutter results: 3% and 5% dropped frames caused no deaths or stuck runs, but
+  at 8% one run in 100 got stuck. I'm checking the runtime cost of the fairness
+  check next. · summary
+
+● Bash(S=/tmp/claude-1000/-home-steebe-Documents-Development-Repositories-steebe
+      -billspotatoshack/868192f4-ad09-441b-a8d8-d38195a92f2e/scratchpad
+      R=/home/steebe/Docume…)
+  ⎿  tightAfterStutter=0 runs=20 target=8000 hz=60 drop=0 died=0 stuck=0 av
+     gScore=8000 birds=3427 birdsWithGroundHazardOnScreen=1345
+     isFair calls=26867 avg=26µs total=704ms
+     … +2 lines (ctrl+o to expand)
+  ⎿  Shell cwd was reset to /home/steebe/Documents/Development/Repositories
+     /steebe/billspotatoshack
+  ⎿  (timeout 10m)
+
+● Birds now spawn alongside the ground hazards, and every spawn passes a
+  fairness check first, so the game never puts Pete somewhere he can't get
+  through.
+
+  How it works (all in pete/game.js)
+  - Separate bird track: from 300 points, birds also spawn on their own timer,
+    independent of the main hazard queue. High birds start at 300 and low birds
+    join in at 800. This makes the pterodactyl-style "do I jump or not?"
+    moments.
+  - Fairness check: no hazard of any kind spawns unless the game can find a way
+    past everything on screen with it added. The check uses Pete's real jump
+    physics, the speed ramp, and every tap-to-full-hold jump length.
+    - It also builds in 35ms of timing slack, so a valid path never depends on
+      frame-perfect input.
+    - If the hazard doesn't fit yet, it waits a few pixels and tries again.
+      Nothing is ever forced in.
+    - It handles a few non-obvious traps: a high bird directly over a weed (an
+      automatic death), birds catching up to slower hazards, and full jumps that
+      sail over a high bird.
+  - No punishment for an old decision: if a hazard appears while Pete is
+    mid-jump, it has to be passable whether the player lets go now or keeps
+    holding. That decision was made before the hazard showed up.
+  - Cost: each check takes about 26µs, roughly once every few frames. game.js is
+    now 23 KB.
+
+  A side fix the testing turned up: Pete's jump used to come out slightly
+  different on 60Hz and 144Hz screens. Physics now runs in fixed 1/120s steps,
+  so the game plays identically on any display. That also keeps the fairness
+  check exact.
+
+  How I tested it: a planning bot played the real game loop in Node (a throwaway
+  harness in the scratchpad, not committed). It was deliberately limited to
+  acting once per rendered frame, like a human.
+
+  ┌────────────────────────┬────────────────┬────────┬─────────────────────┐
+  │       Conditions       │ Runs to 8,000  │ Deaths │   Stuck (no way     │
+  │                        │      pts       │        │      through)       │
+  ├────────────────────────┼────────────────┼────────┼─────────────────────┤
+  │ 30 / 60 / 120 / 144 Hz │ 100 each       │ 0      │ 0                   │
+  ├────────────────────────┼────────────────┼────────┼─────────────────────┤
+  │ 60 Hz, 3% dropped      │ 100            │ 0      │ 0                   │
+  │ frames                 │                │        │                     │
+  ├────────────────────────┼────────────────┼────────┼─────────────────────┤
+  │ 144 Hz, 5% dropped     │ 100            │ 0      │ 0                   │
+  │ frames                 │                │        │                     │
+  ├────────────────────────┼────────────────┼────────┼─────────────────────┤
+  │ 60 Hz, 8% dropped      │ 100            │ 0      │ 1                   │
+  │ frames                 │                │        │                     │
+  └────────────────────────┴────────────────┴────────┴─────────────────────┘
+
+  Across these runs, about 6,500 birds per 100 runs appeared while a ground
+  hazard was on screen, so the overlap really happens. The one stuck run came
+  under heavy stutter: one frame lost in every twelve, which is a badly
+  struggling browser. Every other stuck case I traced along the way turned out
+  to be the bot's fault, not the game's.
+
+  I haven't played it by hand yet. Past 300 points, it's worth checking that the
+  overlapping birds feel tricky rather than cheap.
+
+  pete/index.html now loads game.js?v=3 so browsers pick up the change. Nothing
+  is committed yet.
+
+✻ Baked for 19m 13s · done 3:35 PM
+
+※ recap: You're building Pete, a potato endless-runner on the site, and it now has birds overlapping ground hazards with a fairness check that bot testing passed. Next, play it past 300 points to see if the overlaps feel fair, then commit. (turn off recaps in /config)
