@@ -475,6 +475,7 @@
       s.air = 0;
       s.released = !held;
       s.buffer = 0;
+      ding();
     }
     if (!s.grounded) {
       s.air += dt;
@@ -639,6 +640,7 @@
 
   function start() {
     if (running || performance.now() - deadAt < 400) return;
+    unlockAudio();
     reset();
     overlay.hidden = true;
     pauseBtn.hidden = false;
@@ -679,8 +681,58 @@
     requestAnimationFrame(frame);
   }
 
+  // ---- Sound ----
+  // A soft "ding" synthesized with Web Audio, so there's no file to download.
+  // Browsers only allow audio after a user gesture, so the context is created
+  // (or resumed) on input and then reused for every jump.
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  let audio = null;
+  // Mute preference persists across visits.
+  const MUTE_KEY = 'pete-muted', muteBtn = $('mute');
+  let muted = false;
+  try { muted = localStorage.getItem(MUTE_KEY) === '1'; } catch { /* storage unavailable */ }
+  function syncMuteBtn() {
+    muteBtn.setAttribute('aria-pressed', String(muted));
+    muteBtn.setAttribute('aria-label', muted ? 'Unmute sound' : 'Mute sound');
+  }
+  function toggleMute() {
+    muted = !muted;
+    try { localStorage.setItem(MUTE_KEY, muted ? '1' : '0'); } catch { /* storage unavailable */ }
+    syncMuteBtn();
+  }
+  syncMuteBtn();
+  muteBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleMute();
+    // After a mouse/touch click, drop focus so Space goes back to jumping.
+    if (e.detail) muteBtn.blur();
+  });
+  function unlockAudio() {
+    if (!AudioCtx) return;
+    try {
+      if (!audio) audio = new AudioCtx();
+      if (audio.state === 'suspended') audio.resume();
+    } catch { audio = null; }
+  }
+  function ding() {
+    if (muted || !audio || audio.state !== 'running') return;
+    const t = audio.currentTime;
+    const gain = audio.createGain();
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.08, t + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+    gain.connect(audio.destination);
+    const osc = audio.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1320, t);
+    osc.connect(gain);
+    osc.start(t);
+    osc.stop(t + 0.32);
+  }
+
   // ---- Input ----
   function press() {
+    unlockAudio();
     if (held) return;
     held = true;
     if (running) state.buffer = BUFFER;
@@ -694,6 +746,10 @@
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       if (running && !e.repeat) { e.preventDefault(); if (paused) resume(); else pause(); }
+      return;
+    }
+    if ((e.key === 'm' || e.key === 'M') && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      toggleMute();
       return;
     }
     const jumpKey = JUMP_KEYS.has(e.key);

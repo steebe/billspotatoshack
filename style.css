@@ -314,6 +314,29 @@ main { flex: 1; }
 @media (hover: none), (pointer: coarse) {
   .pause-btn:not([hidden]) { display: flex; }
 }
+/* Mute toggle: top right of the Pete field, always available (even over the overlay). */
+.mute-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 1;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: var(--russet-dark);
+  background: rgba(251,243,220,.85);
+  border: 2px solid var(--russet);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.mute-btn:hover,
+.mute-btn:focus-visible { background: var(--yukon-light); }
+.mute-btn .mute-off,
+.mute-btn[aria-pressed="true"] .mute-on { display: none; }
+.mute-btn[aria-pressed="true"] .mute-off { display: inline; }
 /* Jump button: touch devices only, below the Pete field so thumbs don't block the view. */
 .jump-btn {
   display: none;
